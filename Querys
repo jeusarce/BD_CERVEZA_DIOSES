@@ -1,0 +1,312 @@
+
+
+alter PROC INSERTAR_STOCK(
+
+	@IDITEM INT,
+	@CANTIDAD INT,
+	@DESCRIPCION DESCRIPCION,
+	@IDUSUARIO INT,
+	@FECHA DATE
+)
+
+AS
+begin
+declare @total int
+
+if not exists(select top 1 iditem from stock)
+begin
+		insert into STOCK (IDITEM,CANTIDAD,DESCRIPCION,IDUSUARIO,FECHA,totalfecha) values (@IDITEM,@CANTIDAD,@DESCRIPCION,@IDUSUARIO,@FECHA,@CANTIDAD)
+end
+else
+begin
+		if not exists(select   IDITEM from STOCK where IDITEM=@IDITEM)
+		begin
+		insert into STOCK (IDITEM,CANTIDAD,DESCRIPCION,IDUSUARIO,FECHA,totalfecha) values (@IDITEM,@CANTIDAD,@DESCRIPCION,@IDUSUARIO,@FECHA,@CANTIDAD)
+		insert into	total_stock(idproducto,totalpiezas,fechamodificacion) values(@IDITEM,@CANTIDAD, @FECHA)
+ end
+ else
+ begin
+	set @total=(SELECT SUM(cantidad) from STOCK where iditem=@IDITEM)
+	insert into STOCK (IDITEM,CANTIDAD,DESCRIPCION,IDUSUARIO,FECHA,totalfecha) values (@IDITEM,@CANTIDAD,@DESCRIPCION,@IDUSUARIO,@FECHA,@total+@CANTIDAD)
+	update total_stock set totalpiezas=@total+@CANTIDAD,fechamodificacion=@FECHA where idproducto=@IDITEM
+	end
+	end
+ end
+
+
+	exec INSERTAR_STOCK 3,10,'lote explosivo',1,'20210217'
+	select * from total_STOCK 
+	select * from STOCK
+	DELETE total_STOCK where idtotalstock=8 
+	DBCC CHECKIDENT (stock, RESEED, 0)
+
+SELECT * FROM CLIENTE
+
+alter PROC CREAR_CLIENTE(
+	@NOMBRE NOMBRE,
+	@APELLIDO APELLIDO,
+	@EMPRESA VARCHAR(50),
+	@TELEFONO CHAR(15),
+	@DIRECCION VARCHAR(50),
+	@DESCRIPCION DESCRIPCION
+	
+	)
+
+AS
+IF NOT EXISTS(SELECT * FROM CLIENTE WHERE NOMBRE=@NOMBRE AND APELLIDO=@APELLIDO)
+	INSERT INTO CLIENTE (NOMBRE,APELLIDO,EMPRESA,TELEFONO,DIRECCION,DESCRIPCION) VALUES(@NOMBRE,@APELLIDO,@EMPRESA,@TELEFONO,@DIRECCION,@DESCRIPCION)
+else
+	PRINT 'YA EXISTE EL CLIENTE'+@NOMBRE
+
+	exec CREAR_CLIENTE 'JUAN','MARTINEZ','RES HIGUERA','5512433456','SAN MARTIN DE LAS PIRAMIDES','PIDE CADA SEMANA'
+
+ALTER PROC INSERTAR_ITEMS(
+	@ITEMS VARCHAR(50),
+	@DESCRIPCION DESCRIPCION,
+	@PRECIO
+	)
+
+AS
+
+IF NOT EXISTS(SELECT TOP 1 IDITEM FROM ITEMS )
+	INSERT INTO ITEMS(PRODUCTO,DESRIPCION,PRECIO) VALUES(@ITEMS,@DESCRIPCION,@PRECIO)
+ELSE
+INSERT INTO ITEMS(PRODUCTO,DESRIPCION) VALUES(@ITEMS,@DESCRIPCION,@PRECIO)
+
+
+	
+EXEC INSERTAR_ITEMS 'pack pilsen','BUENA'
+update ITEMS set precio=172 WHERE iditem=3
+
+	
+SELECT*FROM ITEMS
+SELECT*FROM STOCK
+PRINT 43*4
+
+SELECT * FROM PROCESOS
+select * from INFORMACION_GENERAL
+
+alter PROC INSERTAR_PROCESO(
+	@proceso int,
+	@descripcion varchar(50),
+	@fechaproceso datetime
+
+)
+as
+insert into PROCESOS (proceso,descripcion,fecha) values(@proceso,@descripcion,@fechaproceso) 
+
+exec INSERTAR_PROCESO 3,'Consecion','20210217'
+delete PROCESOS
+
+DBCC CHECKIDENT (procesos, RESEED, 0)
+
+
+select * from usuario where IDUSUARIO=4
+EXEC CREAR_USUARIOS 'ALBERTO','ARCE','ADMINISTRADOR','5510468693','san martin'
+update USUARIO set direccion='casimiro L martinez 21 SMP' where idusuario=1
+
+
+CREATE PROC CREAR_USUARIOS (
+	@NOMBRE NOMBRE,
+	@APELLIDO APELLIDO,
+	@CARGO VARCHAR(50),
+	@TELEFONO CHAR(15),
+	@DIRECCION VARCHAR(50),
+	@CONTRASE�A VARCHAR(50)
+
+)
+
+AS
+
+INSERT INTO USUARIO (NOMBRE,APELLIDO,CARGO,TELEFONO,DIRECCION,CONTRASE�A ) VALUES(@NOMBRE,@APELLIDO,@CARGO,@TELEFONO,@DIRECCION,@CONTRASE�A)
+
+
+
+SELECT * FROM VENTAS
+SELECT *FROM STOCK
+SELECT S.IDSTOCK,S.IDITEM,I.PRODUCTO,S.CANTIDAD FROM STOCK S
+INNER JOIN ITEMS I
+ON I.iditem=S.IDITEM
+
+ALTER PROC REALIZAR_VENTA(
+	@IDPRODUCTO VARCHAR(50),
+	@CANTIDAD int,
+	@FECHADEVENTA DATETIME,
+	@DESCRIPCION DESCRIPCION,
+	@IDUSUARIO INT
+	)
+as
+BEGIN
+DECLARE @TOTAL INT
+DECLARE @TOTALPRECIO INT
+SET @TOTAL=(SELECT PRECIO FROM ITEMS WHERE iditem=@IDPRODUCTO)
+SET @TOTALPRECIO =@TOTAL*@CANTIDAD
+DECLARE @NEGATIVO INT
+SET @NEGATIVO = (@CANTIDAD*-1)
+
+
+	IF EXISTS(SELECT TOTALPIEZAS FROM TOTAL_STOCK WHERE IDPRODUCTO=@IDPRODUCTO AND TOTALPIEZAS >0) 
+		BEGIN
+			IF EXISTS(SELECT TOTALPIEZAS FROM TOTAL_STOCK WHERE IDPRODUCTO=@IDPRODUCTO AND TOTALPIEZAS>=@CANTIDAD)
+				BEGIN
+				INSERT INTO VENTAS(IDPRODUCTO,CANTIDAD,TOTALVENTA,[FECHA DE VENTA],DESCRIPCION,IDUSUARIO) 
+				VALUES(@IDPRODUCTO,@CANTIDAD,@TOTALPRECIO,@FECHADEVENTA,@DESCRIPCION,@IDUSUARIO) 
+				exec INSERTAR_STOCK @IDPRODUCTO,@NEGATIVO,VENTA,@IDUSUARIO,'20210217'
+				END
+			ELSE
+			BEGIN
+			DECLARE @NOALCANZA INT
+			SET @NOALCANZA =(SELECT TOTALPIEZAS FROM TOTAL_STOCK WHERE IDPRODUCTO=@IDPRODUCTO)
+				PRINT'LAS PIEZAS PARA REALIZA LA VENTA NO SON SUFICIENTES TOTAL EXISTENCIAS='+ CAST(@NOALCANZA AS CHAR(3))
+				
+			END
+		END
+	ELSE
+		BEGIN
+			PRINT'NO EXISTE STOCK PARA ESTE PRODUCTO'
+			--SELECT PRODUCTO FROM ITEMS WHERE PRODUCTO=@IDPRODUCTO
+		END
+END
+
+EXEC REALIZAR_VENTA 4,3,'20210219','NO SELLADAS',1
+
+
+select * from VENTAS
+select * from total_stock
+select * from STOCK
+SELECT * FROM ITEMS
+
+SELECT * FROM STOCK WHERE DESCRIPCION='VENTA' AND IDITEM=1
+<?xml version="1.0"?>
+<SqlWorkbenchSqlProject xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema" Name="SQL Server Scripts1">
+  <Items>
+    <LogicalFolder Name="Connections" Type="2" Sorted="true">
+      <Items>
+        <ConnectionNode Name="(local)\:sa">
+          <Created>2021-02-17T11:20:44.3235615-06:00</Created>
+          <Type>SQL</Type>
+          <Server>(local)\</Server>
+          <UserName>sa</UserName>
+          <Authentication>SQL</Authentication>
+          <InitialDB>CervezaDioses</InitialDB>
+          <LoginTimeout>30</LoginTimeout>
+          <ExecutionTimeout>0</ExecutionTimeout>
+          <ConnectionProtocol>NotSpecified</ConnectionProtocol>
+          <ApplicationName>Microsoft SQL Server Management Studio - Query</ApplicationName>
+        </ConnectionNode>
+        <ConnectionNode Name="(local)\:SA">
+          <Created>2021-02-18T10:23:54.2831977-06:00</Created>
+          <Type>SQL</Type>
+          <Server>(local)\</Server>
+          <UserName>SA</UserName>
+          <Authentication>SQL</Authentication>
+          <InitialDB />
+          <LoginTimeout>30</LoginTimeout>
+          <ExecutionTimeout>0</ExecutionTimeout>
+          <ConnectionProtocol>NotSpecified</ConnectionProtocol>
+          <ApplicationName>Microsoft SQL Server Management Studio - Query</ApplicationName>
+        </ConnectionNode>
+      </Items>
+    </LogicalFolder>
+    <LogicalFolder Name="Queries" Type="0" Sorted="true">
+      <Items>
+        <FileNode Name="INSERTAR STOCK.sql">
+          <AssociatedConnectionMoniker>8c91a03d-f9b4-46c0-a305-b5dcc79ff907:(local)\:False:sa</AssociatedConnectionMoniker>
+          <AssociatedConnSrvName>(local)\</AssociatedConnSrvName>
+          <AssociatedConnUserName>sa</AssociatedConnUserName>
+          <FullPath>INSERTAR STOCK.sql</FullPath>
+        </FileNode>
+        <FileNode Name="INSERTAR_CLIENTES.sql">
+          <AssociatedConnectionMoniker>8c91a03d-f9b4-46c0-a305-b5dcc79ff907:(local)\:False:sa</AssociatedConnectionMoniker>
+          <AssociatedConnSrvName>(local)\</AssociatedConnSrvName>
+          <AssociatedConnUserName>sa</AssociatedConnUserName>
+          <FullPath>INSERTAR_CLIENTES.sql</FullPath>
+        </FileNode>
+        <FileNode Name="INSERTAR_ITEMS.sql">
+          <AssociatedConnectionMoniker>8c91a03d-f9b4-46c0-a305-b5dcc79ff907:(local)\:False:sa</AssociatedConnectionMoniker>
+          <AssociatedConnSrvName>(local)\</AssociatedConnSrvName>
+          <AssociatedConnUserName>sa</AssociatedConnUserName>
+          <FullPath>INSERTAR_ITEMS.sql</FullPath>
+        </FileNode>
+        <FileNode Name="INSERTAR_PROCESOS.sql">
+          <AssociatedConnectionMoniker>8c91a03d-f9b4-46c0-a305-b5dcc79ff907:(local)\:False:sa</AssociatedConnectionMoniker>
+          <AssociatedConnSrvName>(local)\</AssociatedConnSrvName>
+          <AssociatedConnUserName>sa</AssociatedConnUserName>
+          <FullPath>INSERTAR_PROCESOS.sql</FullPath>
+        </FileNode>
+        <FileNode Name="INSERTAR_USUARIOS.sql">
+          <AssociatedConnectionMoniker>8c91a03d-f9b4-46c0-a305-b5dcc79ff907:(local)\:False:sa</AssociatedConnectionMoniker>
+          <AssociatedConnSrvName>(local)\</AssociatedConnSrvName>
+          <AssociatedConnUserName>sa</AssociatedConnUserName>
+          <FullPath>INSERTAR_USUARIOS.sql</FullPath>
+        </FileNode>
+        <FileNode Name="REALIZAR_VENTA.sql">
+          <AssociatedConnectionMoniker>8c91a03d-f9b4-46c0-a305-b5dcc79ff907:(local)\:False:sa</AssociatedConnectionMoniker>
+          <AssociatedConnSrvName>(local)\</AssociatedConnSrvName>
+          <AssociatedConnUserName>sa</AssociatedConnUserName>
+          <FullPath>REALIZAR_VENTA.sql</FullPath>
+        </FileNode>
+        <FileNode Name="VERIFICA_STOCK.sql">
+          <AssociatedConnectionMoniker>8c91a03d-f9b4-46c0-a305-b5dcc79ff907:(local)\:False:sa</AssociatedConnectionMoniker>
+          <AssociatedConnSrvName>(local)\</AssociatedConnSrvName>
+          <AssociatedConnUserName>sa</AssociatedConnUserName>
+          <FullPath>VERIFICA_STOCK.sql</FullPath>
+        </FileNode>
+      </Items>
+    </LogicalFolder>
+    <LogicalFolder Name="Miscellaneous" Type="3" Sorted="true">
+      <Items />
+    </LogicalFolder>
+  </Items>
+</SqlWorkbenchSqlProject>
+
+
+
+
+ALTER proc Verificador_Stock(
+
+	@iditem int
+	 
+) 
+AS
+BEGIN
+DECLARE @PILSEN INT
+SET @PILSEN=0
+DECLARE @PORTER INT
+SET @PILSEN=0
+
+	SET @PILSEN=(SELECT SUM(cantidad) from STOCK where iditem=1)
+	SET @PORTER=(SELECT SUM(cantidad) from STOCK where iditem=2)
+
+IF EXISTS(SELECT TOP 1 IDPRODUCTO FROM TOTAL_STOCK)
+	BEGIN
+		IF (@PILSEN=0)
+		UPDATE TOTAL_STOCK SET IDPRODUCTO=1,TOTALPIEZAS=@PILSEN,FECHAMODIFICACION='20210218' WHERE IDPRODUCTO=1	
+		ELSE 
+		UPDATE TOTAL_STOCK SET IDPRODUCTO=1,TOTALPIEZAS=@PILSEN,FECHAMODIFICACION='20210218' WHERE IDPRODUCTO=1
+	
+	IF (@PORTER=0)
+	UPDATE TOTAL_STOCK SET IDPRODUCTO=1,TOTALPIEZAS=@PILSEN,FECHAMODIFICACION='20210218' WHERE IDPRODUCTO=1
+	ELSE 
+	UPDATE TOTAL_STOCK SET IDPRODUCTO=1,TOTALPIEZAS=@PILSEN,FECHAMODIFICACION='20210218' WHERE IDPRODUCTO=1
+	END
+ELSE
+	BEGIN
+	INSERT INTO TOTAL_STOCK(IDPRODUCTO,TOTALPIEZAS,FECHAMODIFICACION) VALUES (1, @PILSEN,'20210218') 
+	INSERT INTO TOTAL_STOCK(IDPRODUCTO,TOTALPIEZAS,FECHAMODIFICACION) VALUES (2, @PORTER,'20210218')  
+	
+	END
+
+END
+
+EXEC Verificador_Stock 1
+DELETE TOTAL_STOCK
+DBCC CHECKIDENT (TOTAL_STOCK, RESEED, 0)
+
+SELECT * FROM TOTAL_STOCK
+
+
+select * from stock s
+inner join items i
+on i.iditem=s.IDITEM
+SELECT * FROM TOTAL_STOCK
